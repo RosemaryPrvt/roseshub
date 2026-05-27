@@ -1534,17 +1534,17 @@ mis.Thickness = 1.5
 
 local miniDragStart, miniDragged = nil, false
 miniIcon.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
         miniDragStart = i.Position; miniDragged = false
     end
 end)
 miniIcon.InputChanged:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseMovement and miniDragStart then
+    if (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) and miniDragStart then
         if (i.Position - miniDragStart).Magnitude > 5 then miniDragged = true end
     end
 end)
 miniIcon.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
         if not miniDragged then main.Visible = true; miniIcon.Visible = false end
         miniDragStart = nil; miniDragged = false
     end
@@ -1577,6 +1577,15 @@ resizeHandle.InputBegan:Connect(function(input)
         resizeStart = input.Position
         startSize = main.Size
         main.Draggable = false
+    end
+end)
+
+resizeHandle.InputChanged:Connect(function(input)
+    if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - resizeStart
+        local newW = math.max(320, startSize.X.Offset + delta.X)
+        local newH = math.max(300, startSize.Y.Offset + delta.Y)
+        main.Size = UDim2.new(0, newW, 0, newH)
     end
 end)
 
