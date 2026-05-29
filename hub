@@ -2248,7 +2248,7 @@ local function handleCommand(lower)
         if setTPBadanToggle then setTPBadanToggle(false, false) end
         setStatus("[Chat] !tp on - AFK + Timer 10s")
         task.wait(0.5)
-        sendChatReply("Auto place teleporter ON")
+        sendChatReply("Auto place teleporter ON, wait for next round")
         task.wait(0.5)
         sendChatReply("please turn off kalo udah, dengan cara !tp off")
     elseif lower == "!tp off" then
