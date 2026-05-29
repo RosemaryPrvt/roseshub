@@ -2189,6 +2189,73 @@ gameFolder.ChildAdded:Connect(function(c)
     end
 end)
 
+-- ===== CHAT COMMAND LISTENER =====
+local function sendChatReply(text)
+    pcall(function()
+        local TCS = game:GetService("TextChatService")
+        local channel = TCS.TextChannels:FindFirstChild("RBXGeneral")
+        if channel then
+            channel:SendAsync(text)
+            return
+        end
+        -- legacy fallback
+        game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(text, "All")
+    end)
+end
+
+local function handleCommand(lower)
+    if lower == "!tp on" then
+        _G.AFKModeEnabled = true
+        _G.TPBodyOnly = false
+        _G.AutoTimerValue = 10
+        setStatus("[Chat] !tp on - AFK + Timer 10s")
+        task.wait(0.5)
+        sendChatReply("AFK Mode ON, Timer 10s [auto]")
+    elseif lower == "!tp off" then
+        _G.AFKModeEnabled = false
+        _G.TPBodyOnly = true
+        _G.AutoTimerValue = 1
+        setStatus("[Chat] !tp off - TP Badan + Timer 1s")
+        task.wait(0.5)
+        sendChatReply("AFK Mode OFF, balik solo [auto]")
+    elseif lower:sub(1, 7) == "!timer " then
+        local n = tonumber(lower:sub(8))
+        if n and n >= 1 then
+            _G.AutoTimerValue = math.floor(n)
+            setStatus("[Chat] Timer set: " .. _G.AutoTimerValue .. "s")
+            task.wait(0.5)
+            sendChatReply("Timer set " .. _G.AutoTimerValue .. "s [auto]")
+        end
+    end
+end
+
+local function setupChatListener()
+    -- TextChatService (new chat)
+    pcall(function()
+        local TCS = game:GetService("TextChatService")
+        TCS.MessageReceived:Connect(function(msg)
+            local text = msg.Text
+            if not text then return end
+            handleCommand(text:lower())
+        end)
+    end)
+
+    -- Legacy chat
+    pcall(function()
+        for _, p in pairs(game.Players:GetPlayers()) do
+            p.Chatted:Connect(function(msg)
+                handleCommand(msg:lower())
+            end)
+        end
+        game.Players.PlayerAdded:Connect(function(p)
+            p.Chatted:Connect(function(msg)
+                handleCommand(msg:lower())
+            end)
+        end)
+    end)
+end
+setupChatListener()
+
 -- ===== CLEANUP ON DESTROY =====
 screenGui.Destroying:Connect(function()
     _G.EvadeHubRunning = false
