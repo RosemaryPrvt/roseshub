@@ -2061,17 +2061,13 @@ end
 -- AFK Mode: pake logic sama kayak placeTP, baru TP badan ke safe
 local lastAFKTime = 0
 local afkDebounce = false
-local lastAFKMapInstance = nil -- biar 1 round = 1x place
+local afkRoundToken = 0 -- increment tiap round baru, biar 1 round = 1x place
 
-local function afkModeAction()
+local function afkModeAction(roundToken)
     -- debounce: jangan jalan 2x dalam 5 detik
     if afkDebounce or (tick() - lastAFKTime < 5) then return end
-
-    -- cek map instance, kalau udah pernah di-handle round ini, skip
-    local mapFolder = gameFolder:FindFirstChild("Map") or gameFolder:WaitForChild("Map", 5)
-    if not mapFolder then return end
-    if lastAFKMapInstance == mapFolder then return end
-    lastAFKMapInstance = mapFolder
+    -- kalau token ga match (udah di-claim round ini), skip
+    if roundToken and roundToken ~= afkRoundToken then return end
 
     afkDebounce = true
 
@@ -2079,6 +2075,8 @@ local function afkModeAction()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then afkDebounce = false; return end
 
+    local mapFolder = gameFolder:FindFirstChild("Map") or gameFolder:WaitForChild("Map", 5)
+    if not mapFolder then afkDebounce = false; return end
     local mapName = mapFolder:GetAttribute("MapName")
     if not mapName then
         for i = 1, 15 do
@@ -2157,7 +2155,9 @@ player.CharacterAdded:Connect(function()
     end
 
     if _G.AFKModeEnabled then
-        task.spawn(afkModeAction)
+        afkRoundToken = afkRoundToken + 1
+        local token = afkRoundToken
+        task.spawn(afkModeAction, token)
     elseif _G.TPEnabled then
         task.spawn(placeTP, 0)
     elseif _G.TPBodyOnly then
@@ -2199,7 +2199,9 @@ gameFolder.ChildAdded:Connect(function(c)
         end
 
         if _G.AFKModeEnabled then
-            task.spawn(afkModeAction)
+            afkRoundToken = afkRoundToken + 1
+            local token = afkRoundToken
+            task.spawn(afkModeAction, token)
         elseif _G.TPEnabled then
             task.spawn(placeTP, 0)
         elseif _G.TPBodyOnly then
@@ -2246,7 +2248,9 @@ local function handleCommand(lower)
         if setTPBadanToggle then setTPBadanToggle(false, false) end
         setStatus("[Chat] !tp on - AFK + Timer 10s")
         task.wait(0.5)
-        sendChatReply("AFK Mode ON, Timer 10s [auto]")
+        sendChatReply("Auto place teleporter ON")
+        task.wait(0.5)
+        sendChatReply("please turn off kalo udah, dengan cara !tp off")
     elseif lower == "!tp off" then
         _G.AFKModeEnabled = false
         _G.TPBodyOnly = true
@@ -2255,7 +2259,7 @@ local function handleCommand(lower)
         if setTPBadanToggle then setTPBadanToggle(true, false) end
         setStatus("[Chat] !tp off - TP Badan + Timer 1s")
         task.wait(0.5)
-        sendChatReply("AFK Mode OFF, balik solo [auto]")
+        sendChatReply("Auto place teleporter OFF")
     elseif lower:sub(1, 7) == "!timer " then
         local n = tonumber(lower:sub(8))
         if n and n >= 1 then
