@@ -278,15 +278,20 @@ local function makeToggle(parent, order, label, sublabel, callback)
 
     local state = false
     local ti = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    sw.MouseButton1Click:Connect(function()
-        state = not state
+
+    local function applyState(newState, fireCallback)
+        state = newState
         TweenService:Create(knob, ti, {Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)}):Play()
         TweenService:Create(sw, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(80, 130, 255) or Color3.fromRGB(60, 70, 90)}):Play()
         TweenService:Create(kg, TweenInfo.new(0.2), {Thickness = state and 2 or 0}):Play()
         lbl.TextColor3 = state and Color3.fromRGB(180, 210, 255) or Color3.fromRGB(240, 245, 255)
-        if callback then callback(state) end
+        if fireCallback and callback then callback(state) end
+    end
+
+    sw.MouseButton1Click:Connect(function()
+        applyState(not state, true)
     end)
-    return card
+    return card, applyState
 end
 
 local function makeButton(parent, order, text, callback)
@@ -671,7 +676,7 @@ makeButton(mainPage, 2, "Pasang Sekarang", function()
     task.spawn(placeTP, 0, true)
 end)
 
-makeToggle(mainPage, 3, "TP Badan Only", "TP badan ke camp tiap round (badan tetep solid)", function(s)
+local _, setTPBadanToggle = makeToggle(mainPage, 3, "TP Badan Only", "TP badan ke camp tiap round (badan tetep solid)", function(s)
     _G.TPBodyOnly = s
     setStatus(s and "TP Badan ON" or "TP Badan OFF")
 end)
@@ -683,7 +688,7 @@ end)
 -- ===== AFK MODE =====
 _G.AFKModeEnabled = false
 
-makeToggle(mainPage, 5, "AFK Mode", "TP badan ke safe + pasang teleporter otomatis", function(s)
+local _, setAFKToggle = makeToggle(mainPage, 5, "AFK Mode", "TP badan ke safe + pasang teleporter otomatis", function(s)
     _G.AFKModeEnabled = s
     if s then
         -- matiin toggle lain biar ga bentrok
@@ -2054,13 +2059,26 @@ local function waitForLoadingDone(timeout)
 end
 
 -- AFK Mode: pake logic sama kayak placeTP, baru TP badan ke safe
-local function afkModeAction()
-    local char = player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+local lastAFKTime = 0
+local afkDebounce = false
+local lastAFKMapInstance = nil -- biar 1 round = 1x place
 
+local function afkModeAction()
+    -- debounce: jangan jalan 2x dalam 5 detik
+    if afkDebounce or (tick() - lastAFKTime < 5) then return end
+
+    -- cek map instance, kalau udah pernah di-handle round ini, skip
     local mapFolder = gameFolder:FindFirstChild("Map") or gameFolder:WaitForChild("Map", 5)
     if not mapFolder then return end
+    if lastAFKMapInstance == mapFolder then return end
+    lastAFKMapInstance = mapFolder
+
+    afkDebounce = true
+
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then afkDebounce = false; return end
+
     local mapName = mapFolder:GetAttribute("MapName")
     if not mapName then
         for i = 1, 15 do
@@ -2069,13 +2087,14 @@ local function afkModeAction()
             task.wait(0.1)
         end
     end
-    if not mapName then return end
+    if not mapName then afkDebounce = false; return end
 
     local campCF = mapCoords[mapName]
     local safeCF = safeCoords[mapName] or campCF
 
     if not campCF then
         setStatus("AFK: map '" .. mapName .. "' belum ada koordinat")
+        afkDebounce = false
         return
     end
 
@@ -2097,6 +2116,10 @@ local function afkModeAction()
         hrp.CFrame = oldCF
         setStatus("AFK: TP placed - " .. mapName)
     end
+
+    lastAFKTime = tick()
+    task.wait(1)
+    afkDebounce = false
 end
 
 player.CharacterAdded:Connect(function()
@@ -2203,11 +2226,24 @@ local function sendChatReply(text)
     end)
 end
 
+local lastCommandTime = 0
+local lastCommandText = ""
+
 local function handleCommand(lower)
+    -- debounce: skip kalau command sama dalam 1 detik
+    local now = tick()
+    if lower == lastCommandText and (now - lastCommandTime) < 1 then
+        return
+    end
+    lastCommandTime = now
+    lastCommandText = lower
+
     if lower == "!tp on" then
         _G.AFKModeEnabled = true
         _G.TPBodyOnly = false
         _G.AutoTimerValue = 10
+        if setAFKToggle then setAFKToggle(true, false) end
+        if setTPBadanToggle then setTPBadanToggle(false, false) end
         setStatus("[Chat] !tp on - AFK + Timer 10s")
         task.wait(0.5)
         sendChatReply("AFK Mode ON, Timer 10s [auto]")
@@ -2215,6 +2251,8 @@ local function handleCommand(lower)
         _G.AFKModeEnabled = false
         _G.TPBodyOnly = true
         _G.AutoTimerValue = 1
+        if setAFKToggle then setAFKToggle(false, false) end
+        if setTPBadanToggle then setTPBadanToggle(true, false) end
         setStatus("[Chat] !tp off - TP Badan + Timer 1s")
         task.wait(0.5)
         sendChatReply("AFK Mode OFF, balik solo [auto]")
