@@ -694,8 +694,30 @@ local _, setAFKToggle = makeToggle(mainPage, 5, "AFK Mode", "TP badan ke safe + 
         -- matiin toggle lain biar ga bentrok
         _G.TPEnabled = false
         _G.TPBodyOnly = false
+        _G.SpawnOverrideEnabled = false
     end
     setStatus(s and "AFK Mode ON" or "AFK Mode OFF")
+end)
+
+-- ===== SPAWN OVERRIDE =====
+_G.SpawnOverrideEnabled = false
+
+makeToggle(mainPage, 6, "Spawn Override", "Tiap spawn langsung TP ke safe spot (tanpa teleporter)", function(s)
+    _G.SpawnOverrideEnabled = s
+    if s then
+        _G.TPEnabled = false
+        _G.AFKModeEnabled = false
+        _G.TPBodyOnly = false
+    end
+    setStatus(s and "Spawn Override ON" or "Spawn Override OFF")
+end)
+
+-- ===== CHAT COMMANDS TOGGLE =====
+_G.ChatCommandsEnabled = false
+
+makeToggle(mainPage, 7, "Chat Commands", "Aktifin !tp on/off + auto greet (matiin di publik)", function(s)
+    _G.ChatCommandsEnabled = s
+    setStatus(s and "Chat Commands ON" or "Chat Commands OFF (silent)")
 end)
 
 -- ===== TP KE TEMEN =====
@@ -887,6 +909,124 @@ makeToggle(miscPage, 5, "Hide End Screen", "Ilangin UI survived/died pas round s
             end
         end
     end
+end)
+
+-- ===== STATS HUD (pojok kanan atas, bawah logo Roblox) =====
+_G.ShowStatsHUD = false
+
+local statsHud = Instance.new("Frame", screenGui)
+statsHud.Size = UDim2.new(0, 160, 0, 86)
+statsHud.Position = UDim2.new(1, -172, 0, 36)
+statsHud.BackgroundColor3 = Color3.fromRGB(20, 25, 40)
+statsHud.BackgroundTransparency = 0.25
+statsHud.BorderSizePixel = 0
+statsHud.Visible = false
+local shc = Instance.new("UICorner", statsHud) shc.CornerRadius = UDim.new(0, 10)
+local shs = Instance.new("UIStroke", statsHud)
+shs.Color = Color3.fromRGB(100, 140, 255)
+shs.Transparency = 0.6
+shs.Thickness = 1
+
+local statsLevelLbl = Instance.new("TextLabel", statsHud)
+statsLevelLbl.Size = UDim2.new(1, -16, 0, 18)
+statsLevelLbl.Position = UDim2.new(0, 8, 0, 5)
+statsLevelLbl.BackgroundTransparency = 1
+statsLevelLbl.Text = "Level: --"
+statsLevelLbl.TextColor3 = Color3.fromRGB(200, 220, 255)
+statsLevelLbl.TextXAlignment = Enum.TextXAlignment.Left
+statsLevelLbl.Font = Enum.Font.Montserrat
+statsLevelLbl.TextSize = 12
+
+local statsTokenLbl = Instance.new("TextLabel", statsHud)
+statsTokenLbl.Size = UDim2.new(1, -16, 0, 18)
+statsTokenLbl.Position = UDim2.new(0, 8, 0, 24)
+statsTokenLbl.BackgroundTransparency = 1
+statsTokenLbl.Text = "Tokens: --"
+statsTokenLbl.TextColor3 = Color3.fromRGB(255, 220, 100)
+statsTokenLbl.TextXAlignment = Enum.TextXAlignment.Left
+statsTokenLbl.Font = Enum.Font.Montserrat
+statsTokenLbl.TextSize = 12
+
+local statsStreakLbl = Instance.new("TextLabel", statsHud)
+statsStreakLbl.Size = UDim2.new(1, -16, 0, 18)
+statsStreakLbl.Position = UDim2.new(0, 8, 0, 43)
+statsStreakLbl.BackgroundTransparency = 1
+statsStreakLbl.Text = "Streak: --"
+statsStreakLbl.TextColor3 = Color3.fromRGB(140, 255, 160)
+statsStreakLbl.TextXAlignment = Enum.TextXAlignment.Left
+statsStreakLbl.Font = Enum.Font.Montserrat
+statsStreakLbl.TextSize = 12
+
+local statsPointsLbl = Instance.new("TextLabel", statsHud)
+statsPointsLbl.Size = UDim2.new(1, -16, 0, 18)
+statsPointsLbl.Position = UDim2.new(0, 8, 0, 62)
+statsPointsLbl.BackgroundTransparency = 1
+statsPointsLbl.Text = "Points: --"
+statsPointsLbl.TextColor3 = Color3.fromRGB(200, 180, 255)
+statsPointsLbl.TextXAlignment = Enum.TextXAlignment.Left
+statsPointsLbl.Font = Enum.Font.Montserrat
+statsPointsLbl.TextSize = 12
+
+local function updateStatsHUD()
+    if not _G.ShowStatsHUD then return end
+    pcall(function()
+        local level = player:GetAttribute("Level")
+        local tokens = player:GetAttribute("Tokens")
+        local streak = player:GetAttribute("Streak")
+        local points = player:GetAttribute("Points")
+
+        -- XP dari GUI EVADE
+        local xpText = ""
+        local pg = player:FindFirstChild("PlayerGui")
+        if pg then
+            local menu = pg:FindFirstChild("Menu")
+            if menu then
+                local views = menu:FindFirstChild("Views")
+                if views then
+                    local def = views:FindFirstChild("Default")
+                    if def then
+                        local bottom = def:FindFirstChild("Bottom")
+                        if bottom then
+                            local lvlFrame = bottom:FindFirstChild("Level")
+                            if lvlFrame then
+                                local exp = lvlFrame:FindFirstChild("Experience")
+                                if exp and exp:IsA("TextLabel") then
+                                    xpText = exp.Text
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        local levelStr = level and tostring(level) or "?"
+        if xpText ~= "" then
+            statsLevelLbl.Text = "Lv " .. levelStr .. "  (" .. xpText .. ")"
+        else
+            statsLevelLbl.Text = "Level: " .. levelStr
+        end
+        statsTokenLbl.Text = "Tokens: " .. (tokens and tostring(tokens) or "?")
+        statsStreakLbl.Text = "Streak: " .. (streak and tostring(streak) or "?")
+        statsPointsLbl.Text = "Points: " .. (points and tostring(points) or "?")
+    end)
+end
+
+-- update loop
+task.spawn(function()
+    while screenGui.Parent do
+        if _G.ShowStatsHUD then
+            updateStatsHUD()
+        end
+        task.wait(2)
+    end
+end)
+
+makeToggle(miscPage, 6, "Show Stats", "Tampilin Level & Coins di pojok kanan atas", function(s)
+    _G.ShowStatsHUD = s
+    statsHud.Visible = s
+    if s then updateStatsHUD() end
+    setStatus(s and "Stats HUD ON" or "Stats HUD OFF")
 end)
 
 -- ===== SHOP TAB =====
@@ -2158,6 +2298,30 @@ player.CharacterAdded:Connect(function()
         afkRoundToken = afkRoundToken + 1
         local token = afkRoundToken
         task.spawn(afkModeAction, token)
+    elseif _G.SpawnOverrideEnabled then
+        task.spawn(function()
+            local char = player.Character
+            local hrp = char and char:WaitForChild("HumanoidRootPart", 5)
+            if not hrp then return end
+            local mf = gameFolder:FindFirstChild("Map") or gameFolder:WaitForChild("Map", 5)
+            if not mf then return end
+            local mn = mf:GetAttribute("MapName")
+            if not mn then
+                for i = 1, 15 do
+                    mn = mf:GetAttribute("MapName")
+                    if mn then break end
+                    task.wait(0.1)
+                end
+            end
+            if not mn then return end
+            local dest = safeCoords[mn] or mapCoords[mn]
+            if dest then
+                hrp.CFrame = dest
+                setStatus("Spawn Override: " .. mn)
+            else
+                setStatus("Spawn Override: map '" .. mn .. "' belum ada koordinat")
+            end
+        end)
     elseif _G.TPEnabled then
         task.spawn(placeTP, 0)
     elseif _G.TPBodyOnly then
@@ -2202,6 +2366,30 @@ gameFolder.ChildAdded:Connect(function(c)
             afkRoundToken = afkRoundToken + 1
             local token = afkRoundToken
             task.spawn(afkModeAction, token)
+        elseif _G.SpawnOverrideEnabled then
+            task.spawn(function()
+                local char = player.Character
+                local hrp = char and char:WaitForChild("HumanoidRootPart", 5)
+                if not hrp then return end
+                local mf = gameFolder:FindFirstChild("Map") or gameFolder:WaitForChild("Map", 5)
+                if not mf then return end
+                local mn = mf:GetAttribute("MapName")
+                if not mn then
+                    for i = 1, 15 do
+                        mn = mf:GetAttribute("MapName")
+                        if mn then break end
+                        task.wait(0.1)
+                    end
+                end
+                if not mn then return end
+                local dest = safeCoords[mn] or mapCoords[mn]
+                if dest then
+                    hrp.CFrame = dest
+                    setStatus("Spawn Override: " .. mn)
+                else
+                    setStatus("Spawn Override: map '" .. mn .. "' belum ada koordinat")
+                end
+            end)
         elseif _G.TPEnabled then
             task.spawn(placeTP, 0)
         elseif _G.TPBodyOnly then
@@ -2232,6 +2420,9 @@ local lastCommandTime = 0
 local lastCommandText = ""
 
 local function handleCommand(lower)
+    -- kalau chat commands dimatiin, skip semua
+    if not _G.ChatCommandsEnabled then return end
+
     -- debounce: skip kalau command sama dalam 1 detik
     local now = tick()
     if lower == lastCommandText and (now - lastCommandTime) < 1 then
@@ -2297,6 +2488,16 @@ local function setupChatListener()
     end)
 end
 setupChatListener()
+
+-- ===== AUTO GREET (kasih tau player baru cara pake TP) =====
+Players.PlayerAdded:Connect(function(p)
+    if not _G.EvadeHubRunning then return end
+    if not _G.ChatCommandsEnabled then return end
+    task.wait(3) -- tunggu bentar biar dia load dulu
+    if not _G.EvadeHubRunning then return end
+    if not _G.ChatCommandsEnabled then return end
+    sendChatReply("yo " .. p.DisplayName .. "! ketik !tp on buat auto place teleporter, !tp off buat matiin")
+end)
 
 -- ===== CLEANUP ON DESTROY =====
 screenGui.Destroying:Connect(function()
